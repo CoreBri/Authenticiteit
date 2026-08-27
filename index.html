@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluatietool Fraudebeleid</title>
+  <style>
+    :root { --bg:#f6f4f8; --card:#fff; --ink:#2f2740; --muted:#6f6879; --accent:#7c4d8f; --accent2:#d84f9b; --line:#e5dfea; --ok:#2f7d5f; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+    header { position:sticky; top:0; z-index:10; background:linear-gradient(90deg,var(--accent),var(--accent2)); color:white; padding:18px 24px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+    header h1 { margin:0; font-size:1.2rem; }
+    header p { margin:4px 0 0; opacity:.88; font-size:.9rem; }
+    .wrap { max-width:1280px; margin:0 auto; padding:24px; }
+    .toolbar,.filters,.summary { display:grid; gap:12px; margin-bottom:18px; }
+    .toolbar { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .filters { grid-template-columns:2fr repeat(3,1fr); }
+    label { font-size:.8rem; color:var(--muted); display:block; margin-bottom:6px; }
+    input,select,textarea,button { font:inherit; }
+    input,select,textarea { width:100%; border:1px solid var(--line); background:white; border-radius:10px; padding:10px 12px; color:var(--ink); }
+    textarea { min-height:120px; resize:vertical; }
+    button { border:0; border-radius:10px; padding:10px 14px; cursor:pointer; background:var(--accent); color:white; font-weight:600; }
+    button.secondary { background:white; color:var(--accent); border:1px solid var(--accent); }
+    button.ghost { background:#eee8f1; color:var(--ink); }
+    .grid { display:grid; grid-template-columns: 360px 1fr; gap:18px; align-items:start; }
+    .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 4px 18px rgba(56,32,74,.05); }
+    .question-list { max-height:72vh; overflow:auto; padding:10px; }
+    .qitem { padding:12px; border-radius:10px; border:1px solid transparent; margin-bottom:8px; cursor:pointer; }
+    .qitem:hover { background:#faf7fb; }
+    .qitem.active { background:#f1e9f4; border-color:#d8c3df; }
+    .code { font-size:.72rem; color:var(--accent); font-weight:700; letter-spacing:.03em; }
+    .qtext { font-size:.92rem; margin-top:4px; }
+    .badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .badge { font-size:.68rem; padding:4px 7px; border-radius:999px; background:#f0edf2; color:var(--muted); }
+    .editor { padding:20px; }
+    .editor h2 { margin-top:0; font-size:1.15rem; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 18px; }
+    .taggrid { display:flex; flex-wrap:wrap; gap:8px; }
+    .tag { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); padding:7px 10px; border-radius:999px; background:white; cursor:pointer; user-select:none; }
+    .tag input { width:auto; }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .summary { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .stat { background:white; border:1px solid var(--line); border-radius:12px; padding:14px; }
+    .stat b { display:block; font-size:1.25rem; margin-top:3px; }
+    .empty { padding:28px; color:var(--muted); text-align:center; }
+    .saved { color:var(--ok); font-size:.82rem; margin-left:auto; align-self:center; }
+    @media(max-width:900px){ .grid{grid-template-columns:1fr}.toolbar,.filters,.summary{grid-template-columns:1fr 1fr}.question-list{max-height:none}.saved{width:100%;margin-left:0} }
+    @media(max-width:600px){ .toolbar,.filters,.summary{grid-template-columns:1fr} .wrap{padding:14px} }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Evaluatietool Fraudebeleid</h1>
+  <p>BUG × Informeren · Voorkomen · Detecteren · Melden · Corrigeren</p>
+</header>
+<div class="wrap">
+  <div class="toolbar panel" style="padding:14px">
+    <div><label>Interview-ID</label><input id="interviewId" placeholder="bijv. EXC-01" /></div>
+    <div><label>Respondentgroep</label><select id="role"><option value="">Kies…</option><option>Examencommissie</option><option>Curriculum-/toetscommissie</option><option>Docent</option></select></div>
+    <div><label>Datum</label><input id="date" type="date" /></div>
+    <div><label>Interviewer</label><input id="interviewer" placeholder="naam / initialen" /></div>
+  </div>
+
+  <div class="summary">
+    <div class="stat"><span>Beantwoorde vragen</span><b id="answeredCount">0</b></div>
+    <div class="stat"><span>Beoogd</span><b id="beoogdCount">0</b></div>
+    <div class="stat"><span>Uitgevoerd</span><b id="uitgevoerdCount">0</b></div>
+    <div class="stat"><span>Gerealiseerd</span><b id="gerealiseerdCount">0</b></div>
+  </div>
+
+  <div class="filters panel" style="padding:14px">
+    <div><label>Zoeken</label><input id="search" placeholder="zoek in vraagtekst…" /></div>
+    <div><label>BUG</label><select id="filterBug"><option value="">Alle</option><option>Beoogd</option><option>Uitgevoerd</option><option>Gerealiseerd</option></select></div>
+    <div><label>Fase</label><select id="filterPhase"><option value="">Alle</option><option>Overkoepelend</option><option>Informeren</option><option>Voorkomen</option><option>Detecteren</option><option>Melden</option><option>Corrigeren</option></select></div>
+    <div><label>Doelgroep</label><select id="filterAudience"><option value="">Alle</option><option>Examencommissie</option><option>Curriculum-/toetscommissie</option><option>Docent</option></select></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel question-list" id="questionList"></div>
+    <div class="panel editor" id="editor"><div class="empty">Selecteer links een vraag.</div></div>
+  </div>
+
+  <div class="actions" style="margin-top:18px">
+    <button id="exportCsv">Exporteer CSV</button>
+    <button id="exportJson" class="secondary">Exporteer JSON</button>
+    <button id="clearAll" class="ghost">Wis lokale data</button>
+    <span class="saved" id="savedStatus">Lokaal opgeslagen</span>
+  </div>
+</div>
+<script>
+const questions = [
+  {id:'B-OV-01',bug:'Beoogd',phase:'Overkoepelend',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Hoe is het Fontysbrede fraudebeleid binnen jullie opleiding vertaald naar eigen beleid, afspraken en onderwijs?',prompts:['Wie waren hierbij betrokken?','Welke keuzes zijn bewust gemaakt?','Waar is dit vastgelegd?']},
+  {id:'B-OV-02',bug:'Beoogd',phase:'Overkoepelend',aud:['Examencommissie','Curriculum-/toetscommissie','Docent'],text:'Wat zien jullie als de belangrijkste verandering die het nieuwe fraudebeleid moest brengen ten opzichte van de eerdere werkwijze?'},
+  {id:'U-OV-01',bug:'Uitgevoerd',phase:'Overkoepelend',aud:['Examencommissie','Curriculum-/toetscommissie','Docent'],text:'In hoeverre herkennen jullie de beoogde verschuiving naar preventie in de dagelijkse praktijk?',prompts:['Waar lukt dat goed?','Waar nog niet of minder?']},
+
+  {id:'B-INF-01',bug:'Beoogd',phase:'Informeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Wat moeten studenten volgens jullie weten en begrijpen om fraudevrij en integer te kunnen handelen?'},
+  {id:'B-INF-02',bug:'Beoogd',phase:'Informeren',aud:['Curriculum-/toetscommissie'],text:'Waar en wanneer in het curriculum moeten studenten informatie krijgen over fraude, authenticiteit, integriteit, bronvermelding en AI?'},
+  {id:'B-INF-03',bug:'Beoogd',phase:'Informeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Welke informatie moeten docenten, examinatoren en begeleiders in het werkveld hebben, en wie is verantwoordelijk voor die informatievoorziening?'},
+  {id:'B-INF-04',bug:'Beoogd',phase:'Informeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Zijn rollen en verantwoordelijkheden rond fraudepreventie expliciet belegd en zichtbaar gemaakt?'},
+  {id:'U-INF-01',bug:'Uitgevoerd',phase:'Informeren',aud:['Docent','Curriculum-/toetscommissie'],text:'Hoe worden studenten in de praktijk geïnformeerd over fraudebeleid, regels, authenticiteit, integriteit, brongebruik en AI?',prompts:['Door wie?','Op welke momenten?','In welke vorm?']},
+  {id:'U-INF-02',bug:'Uitgevoerd',phase:'Informeren',aud:['Docent','Curriculum-/toetscommissie'],text:'Hoe merken jullie of studenten de informatie niet alleen hebben ontvangen, maar ook begrijpen en kunnen toepassen?'},
+  {id:'U-INF-03',bug:'Uitgevoerd',phase:'Informeren',aud:['Examencommissie','Curriculum-/toetscommissie','Docent'],text:'In hoeverre zien jullie verschillen in informatievoorziening tussen teams, docenten, onderwijseenheden of locaties?'},
+
+  {id:'B-VRK-01',bug:'Beoogd',phase:'Voorkomen',aud:['Curriculum-/toetscommissie'],text:'Welke keuzes zijn in het curriculum gemaakt om fraude en onregelmatigheden zoveel mogelijk te voorkomen?'},
+  {id:'B-VRK-02',bug:'Beoogd',phase:'Voorkomen',aud:['Curriculum-/toetscommissie'],text:'Waar in het curriculum leren studenten correct bronnen en hulpmiddelen te gebruiken, kritisch informatie te verwerken, verantwoord AI te gebruiken en integer te handelen?'},
+  {id:'B-VRK-03',bug:'Beoogd',phase:'Voorkomen',aud:['Curriculum-/toetscommissie','Examencommissie'],text:'Hoe is de authenticiteitscheck gedurende het leerproces ontworpen?',prompts:['Waar?','Wanneer?','Door wie?','Hoe vastgelegd?']},
+  {id:'B-VRK-04',bug:'Beoogd',phase:'Voorkomen',aud:['Curriculum-/toetscommissie'],text:'Welke rol heeft feedback bij fraudepreventie en welke afspraken zijn er over geven, vastleggen en verifiëren van feedback?'},
+  {id:'U-VRK-01',bug:'Uitgevoerd',phase:'Voorkomen',aud:['Docent'],text:'Hoe ziet fraudepreventie er daadwerkelijk uit in jouw onderwijspraktijk?'},
+  {id:'U-VRK-02',bug:'Uitgevoerd',phase:'Voorkomen',aud:['Docent'],text:'Hoe besteed je in de praktijk aandacht aan authenticiteit, integriteit, brongebruik, ethisch handelen en AI?'},
+  {id:'U-VRK-03',bug:'Uitgevoerd',phase:'Voorkomen',aud:['Docent','Curriculum-/toetscommissie'],text:'Worden authenticiteitschecks daadwerkelijk uitgevoerd zoals bedoeld? Beschrijf hoe dat in de praktijk werkt.'},
+  {id:'U-VRK-04',bug:'Uitgevoerd',phase:'Voorkomen',aud:['Docent'],text:'In hoeverre ben je toegerust om je rol in fraudepreventie uit te voeren?',prompts:['Welke professionalisering is beschikbaar?','Waar is behoefte aan?']},
+
+  {id:'B-DET-01',bug:'Beoogd',phase:'Detecteren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Wanneer spreken jullie van twijfel over authenticiteit, een vermoeden van een onregelmatigheid of een vermoeden van fraude?'},
+  {id:'B-DET-02',bug:'Beoogd',phase:'Detecteren',aud:['Examencommissie'],text:'Welke rol heeft de examencommissie bij het ontwikkelen van een gezamenlijk beeld van wat als vermoeden van fraude geldt?'},
+  {id:'B-DET-03',bug:'Beoogd',phase:'Detecteren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Wordt binnen en tussen teams gekalibreerd over authenticiteit, integriteit en vermoedens van fraude?'},
+  {id:'U-DET-01',bug:'Uitgevoerd',phase:'Detecteren',aud:['Docent','Examencommissie'],text:'Hoe gaat het in de praktijk wanneer een docent of examinator twijfelt aan de authenticiteit van werk?',prompts:['Wat is de eerste stap?','Met wie wordt overlegd?','Wat wordt vastgelegd?']},
+  {id:'U-DET-02',bug:'Uitgevoerd',phase:'Detecteren',aud:['Docent'],text:'Hoe zeker voel je je bij het herkennen en bespreken van mogelijke fraude of authenticiteitsproblemen?'},
+  {id:'U-DET-03',bug:'Uitgevoerd',phase:'Detecteren',aud:['Docent','Examencommissie'],text:'Waar ontstaan in de praktijk grijze gebieden of verschillen in interpretatie?'},
+
+  {id:'B-MEL-01',bug:'Beoogd',phase:'Melden',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Wanneer moet volgens jullie beleid een vermoeden worden gemeld bij de examencommissie?'},
+  {id:'B-MEL-02',bug:'Beoogd',phase:'Melden',aud:['Examencommissie'],text:'Hoe ziet de afgesproken meldprocedure eruit?',prompts:['Wie meldt?','Welke informatie is nodig?','Wat gebeurt daarna?']},
+  {id:'U-MEL-01',bug:'Uitgevoerd',phase:'Melden',aud:['Docent','Examencommissie'],text:'Hoe verloopt een melding in de praktijk?'},
+  {id:'U-MEL-02',bug:'Uitgevoerd',phase:'Melden',aud:['Docent','Examencommissie'],text:'Hoe hoog of laag is de drempel om een vermoeden te melden en wat beïnvloedt die drempel?'},
+  {id:'U-MEL-03',bug:'Uitgevoerd',phase:'Melden',aud:['Docent','Examencommissie'],text:'Zijn er vermoedens die waarschijnlijk niet bij de examencommissie terechtkomen? Waardoor zou dat kunnen komen?'},
+
+  {id:'B-COR-01',bug:'Beoogd',phase:'Corrigeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Wat zou er na een geconstateerde onregelmatigheid of fraude moeten gebeuren?',prompts:['Begrenzen?','Herstellen?','Leren?','Sanctioneren?','Herhaling voorkomen?']},
+  {id:'B-COR-02',bug:'Beoogd',phase:'Corrigeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Hoe moeten inzichten uit meldingen en casuïstiek terugvloeien naar onderwijs, toetsing en beleid?'},
+  {id:'U-COR-01',bug:'Uitgevoerd',phase:'Corrigeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Wat gebeurt er in de praktijk nadat een casus door de examencommissie is behandeld?'},
+  {id:'U-COR-02',bug:'Uitgevoerd',phase:'Corrigeren',aud:['Examencommissie','Curriculum-/toetscommissie'],text:'Kun je een voorbeeld geven waarbij een casus heeft geleid tot aanpassing van onderwijs, toetsing, informatievoorziening of beleid?'},
+
+  {id:'G-OV-01',bug:'Gerealiseerd',phase:'Overkoepelend',aud:['Examencommissie','Curriculum-/toetscommissie','Docent'],text:'Waaraan zouden jullie merken dat het fraudebeleid werkt?'},
+  {id:'G-OV-02',bug:'Gerealiseerd',phase:'Overkoepelend',aud:['Examencommissie'],text:'Welke gegevens verzamelen jullie nu al waarmee effecten zichtbaar kunnen worden gemaakt?'},
+  {id:'G-COR-01',bug:'Gerealiseerd',phase:'Corrigeren',aud:['Examencommissie'],text:'Hoeveel fraudemeldingen waren er in het afgelopen studiejaar, en hoe duiden jullie dat aantal?',prompts:['Veel of weinig?','Had je dit verwacht?','Welke verklaringen zijn denkbaar?']}
+];
+
+const tagOptions=['Werkt goed','Knelpunt','Verschil beleid-praktijk','Voorbeeld','Verbeteridee','Onvoldoende duidelijk','Niet van toepassing'];
+let selectedId=null;
+const key='fraudebeleid-evaluatietool-v1';
+let state=JSON.parse(localStorage.getItem(key)||'{}');
+state.answers=state.answers||{};
+state.meta=state.meta||{};
+
+const $=id=>document.getElementById(id);
+['interviewId','role','date','interviewer'].forEach(id=>{ $(id).value=state.meta[id]||''; $(id).addEventListener('input',()=>{state.meta[id]=$(id).value;save();renderList();}); });
+if(!state.meta.date){ $('date').value=new Date().toISOString().slice(0,10); state.meta.date=$('date').value; }
+['search','filterBug','filterPhase','filterAudience'].forEach(id=>$(id).addEventListener('input',renderList));
+
+function save(){ localStorage.setItem(key,JSON.stringify(state)); $('savedStatus').textContent='Opgeslagen '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}); updateSummary(); }
+function filtered(){
+  const s=$('search').value.toLowerCase(), b=$('filterBug').value, p=$('filterPhase').value, a=$('filterAudience').value || state.meta.role || '';
+  return questions.filter(q=>(!s||q.text.toLowerCase().includes(s)||q.id.toLowerCase().includes(s))&&(!b||q.bug===b)&&(!p||q.phase===p)&&(!a||q.aud.includes(a)));
+}
+function renderList(){
+  const list=$('questionList'); list.innerHTML='';
+  const qs=filtered();
+  if(!qs.length){ list.innerHTML='<div class="empty">Geen vragen gevonden.</div>'; return; }
+  qs.forEach(q=>{ const d=document.createElement('div'); d.className='qitem'+(q.id===selectedId?' active':''); d.onclick=()=>selectQuestion(q.id); const ans=state.answers[q.id]||{}; d.innerHTML=`<div class="code">${q.id}</div><div class="qtext">${q.text}</div><div class="badges"><span class="badge">${q.bug}</span><span class="badge">${q.phase}</span>${ans.text?'<span class="badge">✓ antwoord</span>':''}</div>`; list.appendChild(d); });
+}
+function selectQuestion(id){ selectedId=id; renderList(); renderEditor(); }
+function renderEditor(){
+  const q=questions.find(x=>x.id===selectedId); if(!q)return;
+  const a=state.answers[q.id]||{text:'',tags:[],note:''};
+  $('editor').innerHTML=`<div class="code">${q.id}</div><h2>${q.text}</h2><div class="meta"><span class="badge">${q.bug}</span><span class="badge">${q.phase}</span>${q.aud.map(x=>`<span class="badge">${x}</span>`).join('')}</div>${q.prompts?`<div style="margin-bottom:14px;color:var(--muted);font-size:.9rem"><b>Doorvragen:</b> ${q.prompts.join(' · ')}</div>`:''}<label>Antwoord / samenvatting</label><textarea id="answerText" placeholder="Noteer hier het antwoord of een compacte samenvatting…">${escapeHtml(a.text||'')}</textarea><label style="margin-top:14px">Categoriseer deze bevinding</label><div class="taggrid">${tagOptions.map(t=>`<label class="tag"><input type="checkbox" value="${t}" ${a.tags?.includes(t)?'checked':''}>${t}</label>`).join('')}</div><label style="margin-top:14px">Analytische notitie</label><textarea id="answerNote" placeholder="Interpretatie, opvallend citaat, vervolgactie…">${escapeHtml(a.note||'')}</textarea><div class="actions"><button id="saveAnswer">Opslaan</button><button id="nextQuestion" class="secondary">Volgende vraag</button></div>`;
+  $('saveAnswer').onclick=()=>persistAnswer(false); $('nextQuestion').onclick=()=>persistAnswer(true);
+}
+function persistAnswer(goNext){ const qid=selectedId; const tags=[...$('editor').querySelectorAll('input[type=checkbox]:checked')].map(x=>x.value); state.answers[qid]={text:$('answerText').value.trim(),note:$('answerNote').value.trim(),tags}; save(); renderList(); if(goNext){ const qs=filtered(); const i=qs.findIndex(q=>q.id===qid); if(i>=0&&i<qs.length-1)selectQuestion(qs[i+1].id); } }
+function updateSummary(){ const vals=questions.map(q=>({q,a:state.answers[q.id]})).filter(x=>x.a?.text); $('answeredCount').textContent=vals.length; $('beoogdCount').textContent=vals.filter(x=>x.q.bug==='Beoogd').length; $('uitgevoerdCount').textContent=vals.filter(x=>x.q.bug==='Uitgevoerd').length; $('gerealiseerdCount').textContent=vals.filter(x=>x.q.bug==='Gerealiseerd').length; }
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+function download(name,content,type){ const blob=new Blob([content],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+$('exportJson').onclick=()=>download(`fraudebeleid-${state.meta.interviewId||'interview'}.json`,JSON.stringify({meta:state.meta,answers:state.answers},null,2),'application/json');
+$('exportCsv').onclick=()=>{ const rows=[['interview_id','respondentgroep','datum','interviewer','vraagcode','BUG','fase','vraag','antwoord','tags','analytische_notitie']]; questions.forEach(q=>{const a=state.answers[q.id]; if(a?.text||a?.note||a?.tags?.length)rows.push([state.meta.interviewId||'',state.meta.role||'',state.meta.date||'',state.meta.interviewer||'',q.id,q.bug,q.phase,q.text,a.text||'',(a.tags||[]).join('|'),a.note||'']);}); const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n'); download(`fraudebeleid-${state.meta.interviewId||'interview'}.csv`,csv,'text/csv;charset=utf-8'); };
+$('clearAll').onclick=()=>{ if(confirm('Alle lokaal opgeslagen interviewdata wissen?')){ localStorage.removeItem(key); location.reload(); } };
+renderList(); updateSummary();
+</script>
+</body>
+</html>
